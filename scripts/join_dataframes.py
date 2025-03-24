@@ -55,6 +55,6 @@ print(df.head())
 
 # save the dataframe to a csv file
 try:
-    df.to_csv("data/Training_Data_Master/dataset.csv", index=False)
+    df.to_csv("processed_data/training_dataset.csv", index=False)
 except Exception as e:
     print(f"error saving the file: {e}")
