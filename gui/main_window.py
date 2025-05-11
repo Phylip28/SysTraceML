@@ -1,4 +1,9 @@
 import sys
+import joblib
+from collections import Counter
+import os
+import pandas as pd
+
 from PyQt5.QtWidgets import (
     QApplication,
     QVBoxLayout,
@@ -14,6 +19,13 @@ from PyQt5.QtWidgets import (
 class MainWindow(QWidget):
 
     def __init__(self):
+
+        # Load model
+        model_path = os.path.join("models", "model.pkl")
+        self.model = joblib.load(model_path)
+
+        # Load syscalls used during training
+        self.syscalls_ids = list(range(0, 450))
 
         super().__init__()
         self.setWindowTitle("SysTraceML")
@@ -63,6 +75,7 @@ class MainWindow(QWidget):
         self.setLayout(layout)
 
     def show_instructions(self):
+
         msg = QMessageBox()
         msg.setWindowTitle("Instructions")
         msg.setText(
@@ -71,22 +84,51 @@ class MainWindow(QWidget):
         msg.exec_()
 
     def predict(self):
-        syscalls_input = self.input_field.toPlainText()
+
+        syscalls_input = self.input_field.toPlainText().strip()
+
         if not syscalls_input:
             self.result_field.setText("Please enter a syscalls sequence.")
             return
 
-        # Here you would call the prediction function from your model
-        # For demonstration, we will just echo the input
-        resultado = "Normal [Simulated] with 97% confidence"
-        self.result_field.setText(resultado)
+        try:
+            # Verifica que todos los elementos sean números
+            syscall_str_list = syscalls_input.split()
+            syscall_list = [int(x) for x in syscall_str_list]
+
+            # Contar frecuencia de cada syscall_id
+            freq_counter = Counter(syscall_list)
+
+            # Crear vector de características con todas las posibles syscall_ids
+            feature_vector = [freq_counter.get(i, 0) for i in self.syscalls_ids]
+
+            # Convertir a DataFrame (con nombres de columnas si es necesario)
+            input_df = pd.DataFrame([feature_vector], columns=self.syscalls_ids)
+
+            # Predicción
+            prediction = self.model.predict(input_df)[0]
+            proba = self.model.predict_proba(input_df)[0]
+            confidence = max(proba) * 100
+
+            label = "Normal" if prediction == 0 else "Attack"
+            self.result_field.setText(f"{label} ({confidence:.2f}% confidence)")
+
+        except ValueError as ve:
+            self.result_field.setText(
+                f"Invalid input. Ensure only integers separated by spaces.\nError: {ve}"
+            )
+
+        except Exception as e:
+            self.result_field.setText(f"Unexpected error: {e}")
 
     def clear_fields(self):
+
         self.input_field.clear()
         self.result_field.clear()
 
 
 def main():
+
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
